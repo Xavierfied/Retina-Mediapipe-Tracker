@@ -1,3 +1,4 @@
+.venv/
 results/
 samples/
 weights/
@@ -6,3 +7,7 @@ __pycache__/
 ---
 .mp4
 .jpg, .jpeg
+learning/
+learning_retina/
+logs/
+.claude/

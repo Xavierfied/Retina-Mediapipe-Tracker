@@ -1,109 +1,82 @@
-# Safety Identifier YOLO
+# MediaPipe + RetinaFace Detection
 
-A YOLO-based safety detection system that identifies personal protective equipment (PPE) in images and videos.
+A unified detection system focused on MediaPipe landmark models and RetinaFace face detection.
 
 ## Features
 
-- Detects helmets and heads images/videos
-- Optional GPU acceleration for faster processing
-- Support for custom YOLO models
-- Automatically downloads the default model from Google Drive if missing
+- **Face** — face landmark detection via MediaPipe Face Landmarker
+- **Hands** — hand landmark detection via MediaPipe
+- **Pose** — pose landmark detection via MediaPipe
+- **RetinaFace** — face detection and landmarks via RetinaFace
 - Supports images, video files, and webcam input
-- Saves processed results to output directory
+- Results saved to `results/` as `{filename}_{detector}.{ext}`
 
-## Setup For PREDICTION
+## Setup
 
-1. **Create and activate virtual environment**
-   ```bash
-   create your own virtual enviorment 
-   ```
+1. **Create and activate a virtual environment**
 
 2. **Install dependencies**
    ```bash
-   pip install requirements.txt requirements.txt.txt
+   pip install -r requirements.txt
    ```
 
-3. **Install GPU PyTorch (Optional but recommended)**
-   ```bash
-   python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-   ```
+## Usage
 
-## Guide to use:
-
-### Argparse Options:
 ```bash
-# Process an image
-python main.py --source path/to/image.jpg
+# Face landmark detection
+python main.py --source image.jpg --detector face
 
-# Process a video
-python main.py --source path/to/video.mp4
+# RetinaFace detection
+python main.py --source image.jpg --detector retina
 
-# Use webcam (0 is default camera)
-python main.py --source 0
-```
+# Hand tracking
+python main.py --source video.mp4 --detector hands
 
-### Advanced Options
-```bash
-python main.py --source image.jpg \
-    --model path/to/model.pt \
-    --confidence 0.5 \
-    --output results/ \
-    --imgsz 640
+# Pose estimation
+python main.py --source 0 --detector pose
 ```
 
 ## Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `--source` | Required | Image/video path or webcam index (0, 1, etc.) |
-| `--model` | best.pt | Path to YOLO model weights |
-| `--confidence` | 0.35 | Confidence threshold for detections |
-| `--iou` | 0.45 | IoU threshold for bounding boxes |
-| `--imgsz` | 640 | Input image size |
-| `--output` | results | Output directory for processed files |
-| `--device` | auto | Device: 'cpu' or GPU index (0, 1, etc.) |
+```
+ Parameter     Default    Description 
 
-## Detection Classes
+ `--source`   `Required`    Image/video path or webcam index (e.g. `0`) 
+ `--detector`  `face`     Detection mode: `face` | `hands` | `pose` | `retina` 
+ `--output`   `results`   Output directory 
+ `--threshold`  `0.3`      RetinaFace score threshold 
+```
 
-- **Helmet (Green)**: Safety helmets
-- **Head (Red)**: Exposed heads
+## Project Structure
+
+```
+main.py              # entry point — parses args and dispatches to the right runner
+utils/
+  args.py            # argument definitions
+  face.py            # face landmark runner
+  hands.py           # hand tracking runner
+  pose.py            # pose estimation runner
+  retina.py          # RetinaFace face detection runner
+weights/
+  face_landmarker.task
+  hand_landmarker.task
+  pose_landmarker.task
+```
 
 ## Output
-```
-Output will be saved in results directior, as "filename_PPE"
-```
-## Model
 
-The default model (`best.pt`) is automatically downloaded from Google Drive on first run. You can also use your own custom YOLO models by specifying the `--model` parameter.
+Results are saved in the `results/` directory as `{filename}_{detector}.{ext}`, e.g.:
+- `image_face.jpg`
+- `video_hands.mp4`
+- `webcam_pose.mp4`
+- `image_retina.jpg`
 
-## Requirements
-Use:
-```
-cd "Webevis-internship/saftey_identifier_yolo"
-
-pip install -r requirements.txt
-```
-
+MediaPipe `.task` model files are stored in `weights/` and auto-downloaded on first use.
 
 ## NOTE
-To review video based results, check out the before and after video under this link:
-```
-https://drive.google.com/drive/folders/1nElnO3NpckkNUBCmyAkScuWQDxpLz6zW?usp=sharing
-```
----
+RetinaFace is only for performing processing on images and video and not live feed.
 
-## SETUP FOR TRAINING
-Upload the notebook in Google colab or kaggle according to your preference and simply run all the cells in order with your **"WandB"** API KEY.
 
----
+# Future Update:
+In the next update the current project shall be moved to sub-branch and in the "main" branch will contain a training script for you to input your own people labled dataset and effectively use it as an attendance system and, for Pose Detection variant, it will be combined with face detection to track a person with their name until they are out of the frame :)
 
-## Stats of best.pt
-```
-Trained till 94 Epocs due to Early Stopping:
-
-- mAP@50        : 0.636
-- mAP@50-95     : 0.429
-- Precision     : 0.611
-- Recall        : 0.610
-
-```

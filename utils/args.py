@@ -3,64 +3,44 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description="PPE DETECTION SAFTEY IDENTIFIER",
+        description="MediaPipe + RetinaFace Detection Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=""""""
+        epilog="""
+Examples:
+  python main.py --source image.jpg --detector face
+  python main.py --source video.mp4 --detector hands
+  python main.py --source 0        --detector pose
+  python main.py --source image.jpg --detector retina
+        """
     )
 
     parser.add_argument(
-    "--source",
-    type=str,
-    required=True,
-    help="Type image/video path or webcam index '0'.",
-    )
-
-    parser.add_argument(
-        "--model",
+        "--source",
         type=str,
-        default="weights/best.pt",
-        help="Path to YOLO weights (default:best.pt)"
+        required=True,
+        help="Image/video path or webcam index (e.g. 0).",
     )
 
     parser.add_argument(
-        "--confidence",
-        type=float,
-        default=0.35,
-        help="Confidence threshold for detections (default:0.35)"
-    )
-
-    parser.add_argument(
-        "--iou",
-        type=float,
-        default=0.45,
-        help="IoU(Intersection over union) threshold for bounding box detections (default:0.45)"
-    )
-
-    parser.add_argument(
-        "--imgsz",
-        type=int,
-        default=640,
-        help="Img size boxes (default:640)"
+        "--detector",
+        type=str,
+        choices=["face", "hands", "pose", "retina"],
+        default="face",
+        help="Detection mode: face | hands | pose | retina (default: face)",
     )
 
     parser.add_argument(
         "--output",
         type=str,
         default="results",
-        help="Output folder (default: results/)"
+        help="Output directory (default: results/)",
     )
 
     parser.add_argument(
-        "--device",
-        type=str,
-        default="",
-        help="Device: '' auto | 'cpu' | '0' GPU"
-    )
-    parser.add_argument(
-        "--line-width",
-        type=int,
-        default=2,
-        help="Bounding box thickness (default: 2)"
+        "--threshold",
+        type=float,
+        default=0.3,
+        help="Score threshold for RetinaFace detection (default: 0.3)",
     )
 
     return parser.parse_args()
