@@ -11,3 +11,4 @@ learning/
 learning_retina/
 logs/
 .claude/
+.gitignore

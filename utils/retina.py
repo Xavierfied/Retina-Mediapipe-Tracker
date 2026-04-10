@@ -2,6 +2,9 @@ from pathlib import Path
 
 import cv2 as cv
 from retinaface import RetinaFace
+import os
+
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"}
 
@@ -36,48 +39,41 @@ def run(args, source, output_dir: Path):
     threshold = getattr(args, "threshold", 0.3)
 
     is_image = isinstance(source, Path) and source.suffix.lower() not in VIDEO_EXTS
-    is_webcam = isinstance(source, int)
 
     if is_image:
         out_path = output_dir / f"{source.stem}_retina{source.suffix}"
         image = cv.imread(str(source))
         resp = RetinaFace.detect_faces(image, threshold=threshold)
         cv.imwrite(str(out_path), _annotate(image, resp))
+        return
 
-    elif not is_webcam:
-        out_path = output_dir / f"{source.stem}_retina.mp4"
-        cap = cv.VideoCapture(str(source))
-        fps = cap.get(cv.CAP_PROP_FPS) or 30.0
-        ret, frame = cap.read()
-        if not ret:
-            cap.release()
-            raise ValueError(f"Cannot read video: {source}")
-        h, w = frame.shape[:2]
-        writer = cv.VideoWriter(str(out_path), cv.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-        while ret:
-            resp = RetinaFace.detect_faces(frame, threshold=threshold)
-            writer.write(_annotate(frame, resp))
-            ret, frame = cap.read()
-        writer.release()
+    # vid/webcam
+    cap = cv.VideoCapture(source if isinstance(source, int) else str(source))
+    is_webcam = isinstance(source, int)
+
+    ret, frame = cap.read()
+    if not ret:
         cap.release()
+        raise ValueError(f"Cannot read from source: {source}")
 
-    else:
-        out_path = output_dir / "webcam_retina.mp4"
-        cap = cv.VideoCapture(source)
-        fps = cap.get(cv.CAP_PROP_FPS) or 30.0
-        w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-        writer = cv.VideoWriter(str(out_path), cv.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+    h, w = frame.shape[:2]
+    fps = cap.get(cv.CAP_PROP_FPS) or 30.0
+    out_path = output_dir / ("webcam_retina.mp4" if is_webcam else f"{source.stem}_retina.mp4")
+    writer = cv.VideoWriter(str(out_path), cv.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+
+    try:
+        while ret:
             resp = RetinaFace.detect_faces(frame, threshold=threshold)
             frame = _annotate(frame, resp)
             writer.write(frame)
-            cv.imshow("RetinaFace Detection — Q to quit", frame)
-            if cv.waitKey(1) & 0xFF == ord("q"):
-                break
+
+            if is_webcam:
+                cv.imshow("RetinaFace Detection — Q to quit", frame)
+                if cv.waitKey(1) & 0xFF == ord("q"):
+                    break
+
+            ret, frame = cap.read()
+    finally:
         writer.release()
         cap.release()
         cv.destroyAllWindows()

@@ -1,5 +1,4 @@
 import os
-import time
 import urllib.request
 from pathlib import Path
 
@@ -11,8 +10,7 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"}
 MODEL_PATH = Path("weights/hand_landmarker.task")
 MODEL_URL  = (
-    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
-    "hand_landmarker/float16/latest/hand_landmarker.task"
+    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
 )
 
 BaseOptions         = mp.tasks.BaseOptions
@@ -41,8 +39,7 @@ def _annotate(frame, results):
 def run(source, output_dir: Path):
     _download_model()
 
-    is_image  = isinstance(source, Path) and source.suffix.lower() not in VIDEO_EXTS
-    is_webcam = isinstance(source, int)
+    is_image = isinstance(source, Path) and source.suffix.lower() not in VIDEO_EXTS
 
     if is_image:
         out_path = output_dir / f"{source.stem}_hands{source.suffix}"
@@ -51,66 +48,51 @@ def run(source, output_dir: Path):
             running_mode=VisionRunningMode.IMAGE,
             num_hands=2,
         )
-        image  = cv.imread(str(source))
-        rgb    = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+        image = cv.imread(str(source))
+        rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
         mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         with HandLandmarker.create_from_options(opts) as det:
             results = det.detect(mp_img)
         cv.imwrite(str(out_path), _annotate(image, results))
+        return
 
-    elif not is_webcam:
-        out_path = output_dir / f"{source.stem}_hands.mp4"
-        opts = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
-            running_mode=VisionRunningMode.VIDEO,
-            num_hands=2,
-        )
-        cap = cv.VideoCapture(str(source))
-        fps = cap.get(cv.CAP_PROP_FPS) or 30.0
-        ret, frame = cap.read()
-        if not ret:
-            cap.release()
-            raise ValueError(f"Cannot read video: {source}")
-        h, w = frame.shape[:2]
-        writer = cv.VideoWriter(str(out_path), cv.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-        with HandLandmarker.create_from_options(opts) as det:
-            idx = 0
-            while ret:
-                ts_ms  = int(idx * (1000.0 / fps))
-                rgb    = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-                mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                writer.write(_annotate(frame, det.detect_for_video(mp_img, ts_ms)))
-                idx += 1
-                ret, frame = cap.read()
-        writer.release()
+    # Handle both video files and webcam
+    is_webcam = isinstance(source, int)
+    cap = cv.VideoCapture(source if is_webcam else str(source))
+
+    ret, frame = cap.read()
+    if not ret:
         cap.release()
+        raise ValueError(f"Cannot read from source: {source}")
 
-    else:
-        out_path = output_dir / "webcam_hands.mp4"
-        opts = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
-            running_mode=VisionRunningMode.VIDEO,
-            num_hands=2,
-        )
-        cap    = cv.VideoCapture(source)
-        fps    = cap.get(cv.CAP_PROP_FPS) or 30.0
-        w      = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
-        h      = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-        writer = cv.VideoWriter(str(out_path), cv.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-        start  = time.time()
+    h, w = frame.shape[:2]
+    fps = cap.get(cv.CAP_PROP_FPS) or 30.0
+    out_path = output_dir / ("webcam_hands.mp4" if is_webcam else f"{source.stem}_hands.mp4")
+    writer = cv.VideoWriter(str(out_path), cv.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+
+    opts = HandLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
+        running_mode=VisionRunningMode.VIDEO,
+        num_hands=2,
+    )
+
+    try:
         with HandLandmarker.create_from_options(opts) as det:
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                ts_ms  = int((time.time() - start) * 1000)
-                rgb    = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+            ts_ms = 0
+            while ret:
+                rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                frame  = _annotate(frame, det.detect_for_video(mp_img, ts_ms))
+                frame = _annotate(frame, det.detect_for_video(mp_img, ts_ms))
                 writer.write(frame)
-                cv.imshow("Hand Tracking — Q to quit", frame)
-                if cv.waitKey(1) & 0xFF == ord("q"):
-                    break
+
+                if is_webcam:
+                    cv.imshow("Hand Tracking — Q to quit", frame)
+                    if cv.waitKey(1) & 0xFF == ord("q"):
+                        break
+
+                ts_ms += int(1000.0 / fps)
+                ret, frame = cap.read()
+    finally:
         writer.release()
         cap.release()
         cv.destroyAllWindows()

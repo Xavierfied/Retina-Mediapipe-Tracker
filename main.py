@@ -2,6 +2,8 @@ from pathlib import Path
 
 from utils.args import get_args
 from utils import face, hands, pose, retina
+import os
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 RUNNERS = {
     "face":   lambda args, src, out: face.run(src, out),
@@ -18,7 +20,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     RUNNERS[args.detector](args, source, output_dir)
-    print("[✓] Done.")
+    print("Done.")
 
 
 if __name__ == "__main__":
